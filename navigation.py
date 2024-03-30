@@ -5,7 +5,6 @@ navbar = dbc.NavbarSimple(
     brand="STONKS Trading Co.",
     brand_href="/",
     children=[
-        dbc.NavItem(dbc.NavLink("Sign In", href="/")),
         dbc.NavItem(dbc.NavLink("Account", href="/account")),
         dbc.NavItem(dbc.NavLink("Securities", href="/securities")),
         dbc.NavItem(dbc.NavLink("Trading", href="/trading")),
