@@ -11,9 +11,7 @@ FROM User
 WHERE UserID = { whatever User ID is selected };
 
 -- Test where UserID = 1
-SELECT FirstName, LastName, DateOfBirth, StreetAddress, City, Zip, Country, PhoneNumber, BankAccountRouting, BankAccountNumber
-FROM User
-WHERE UserID = 1;
+3
 
 -- Alternatively, we can just do a SELECT * and choose the columns we want to display in the application
 SELECT *

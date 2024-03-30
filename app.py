@@ -4,7 +4,6 @@ import dash
 from dash import html, dcc
 import dash_bootstrap_components as dbc
 from dash.dependencies import Input, Output
-
 # Define the navigation bar
 from navigation import navbar
 
@@ -12,6 +11,7 @@ from navigation import navbar
 from pages.account import layout as account_layout
 from pages.securities import layout as securities_layout
 from pages.trading import layout as trading_layout
+import sqlalchemy
 
 # Initialize the Dash app
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
