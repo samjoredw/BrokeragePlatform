@@ -11,7 +11,8 @@ navbar = dbc.NavbarSimple(
     children=[
         dbc.NavItem(dbc.NavLink("Securities", href="/securities")),
         dbc.NavItem(dbc.NavLink("Trading", href="/trading")),
-        dbc.DropdownMenu(children=[dbc.DropdownMenuItem("Github", href="https://github.com")],
+        dbc.DropdownMenu(children=[dbc.DropdownMenuItem("Github",
+            href="https://github.com/samjoredw/BrokeragePlatform/tree/main")],
             nav=True,
             in_navbar=True,
             label="More",
