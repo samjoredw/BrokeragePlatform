@@ -2,20 +2,22 @@
 -- ***Profile Page***************************************************************************************************
 -- ***User Name (Menu Pulldown)*** ----------------------------------------------------------------------------------------------------------
 SELECT FirstName || LastName AS FullName
-FROM User
+FROM "user"
 ORDER BY FullName;
 
 -- ***Profile*** ----------------------------------------------------------------------------------------------------------------------------
 SELECT FirstName, LastName, DateOfBirth, StreetAddress, City, Zip, Country, PhoneNumber, BankAccountRouting, BankAccountNumber
-FROM User
+FROM "user"
 WHERE UserID = { whatever User ID is selected };
 
 -- Test where UserID = 1
-3
+SELECT FirstName, LastName, DateOfBirth, StreetAddress, City, Zip, Country, PhoneNumber, BankAccountRouting, BankAccountNumber
+FROM "user"
+WHERE UserID = 1;
 
 -- Alternatively, we can just do a SELECT * and choose the columns we want to display in the application
 SELECT *
-FROM User
+FROM "user"
 WHERE UserID = 1;
 
 -- ***Accounts*** --------------------------------------------------------------
@@ -36,7 +38,7 @@ WITH AccountTypes AS (
     FROM Security
 )
 
-SELECT AccountTypes.AccountType, SecurityInfo.Name, Holding.ShareCount, Holding.PurchasePrice, Holding.PurchaseDate 
+SELECT AccountTypes.AccountType, SecurityInfo.Name, Holding.ShareCount, Holding.PurchasePrice, Holding.PurchaseDate
 FROM Holding
 LEFT JOIN AccountTypes ON Holding.AccountID = AccountTypes.AccountID
 LEFT JOIN SecurityInfo ON Holding.SecurityID = SecurityInfo.SecurityID
@@ -56,7 +58,7 @@ WITH AccountTypes AS (
     FROM Security
 )
 
-SELECT AccountTypes.AccountType, SecurityInfo.Name, Holding.ShareCount, Holding.PurchasePrice, Holding.PurchaseDate 
+SELECT AccountTypes.AccountType, SecurityInfo.Name, Holding.ShareCount, Holding.PurchasePrice, Holding.PurchaseDate
 FROM Holding
 LEFT JOIN AccountTypes ON Holding.AccountID = AccountTypes.AccountID
 LEFT JOIN SecurityInfo ON Holding.SecurityID = SecurityInfo.SecurityID
@@ -85,7 +87,7 @@ WITH AccountInfo AS (
     FROM Security
 )
 
-SELECT AccountTypes.AccountType, AccountInfo.AccountID, AccountInfo.TransactionID, AccountInfo.SecurityID, SecurityInfo.Name, AccountInfo.ShareCount, AccountInfo.Price, 
+SELECT AccountTypes.AccountType, AccountInfo.AccountID, AccountInfo.TransactionID, AccountInfo.SecurityID, SecurityInfo.Name, AccountInfo.ShareCount, AccountInfo.Price,
     CASE WHEN AccountInfo.Action = true THEN 'BUY'
     WHEN AccountInfo.Action = false THEN 'SELL'
 END AS BuySell, AccountInfo.DateInitiated, AccountInfo.DateCompleted
@@ -117,7 +119,7 @@ WITH AccountInfo AS (
     FROM Security
 )
 
-SELECT AccountTypes.AccountType, AccountInfo.AccountID, AccountInfo.TransactionID, AccountInfo.SecurityID, SecurityInfo.Name, AccountInfo.ShareCount, AccountInfo.Price, 
+SELECT AccountTypes.AccountType, AccountInfo.AccountID, AccountInfo.TransactionID, AccountInfo.SecurityID, SecurityInfo.Name, AccountInfo.ShareCount, AccountInfo.Price,
     CASE WHEN AccountInfo.Action = true THEN 'BUY'
     WHEN AccountInfo.Action = false THEN 'SELL'
 END AS BuySell, AccountInfo.DateInitiated, AccountInfo.DateCompleted
@@ -165,3 +167,16 @@ WHERE Transfer.AccountID IN (
     WHERE UserID = 1
 )
 ORDER BY DateCompleted DESC;
+
+
+-- *** Name Lookup by AccountID *** ----------------------------------------------------------------------------------------------------------
+SELECT "user".FirstName, "user".LastName, Account.AccountID, Account.AccountType, "user".FirstName || "user".LastName AS FullName
+FROM "user"
+LEFT JOIN Account ON "user".UserID = Account.UserID
+WHERE Account.AccountID = { whatever Account ID is selected };
+
+-- Test with AccountID = 1
+SELECT "user".FirstName, "user".LastName, Account.AccountID, Account.AccountType, "user".FirstName || "user".LastName AS FullName
+FROM "user"
+LEFT JOIN Account ON "user".UserID = Account.UserID
+WHERE Account.AccountID = 1;
