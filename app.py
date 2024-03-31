@@ -110,7 +110,7 @@ def fetch_profile(user_id):
             bankaccountrouting,
             bankaccountnumber
             FROM "user"
-            WHERE UserID = {user_id}
+            WHERE userid = {user_id}
         """)
         result = conn.execute(query)
         profile_data = result.fetchone()
