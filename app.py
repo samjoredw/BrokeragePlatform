@@ -9,6 +9,7 @@ import plotly.graph_objs as go
 
 
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP], suppress_callback_exceptions=True)
+server = app.server
 
 FINALDATABASE = 'postgresql://se2584:se2584@35.212.75.104/proj1part2'
 try:
