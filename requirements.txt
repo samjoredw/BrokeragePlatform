@@ -9,3 +9,4 @@ dash-core-components==2.0.0
 dash-html-components==2.0.0
 psycopg2==2.9.9
 dash-table==5.0.0
+gunicorn==20.0.4
