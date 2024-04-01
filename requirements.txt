@@ -5,3 +5,7 @@ dash-html-components==2.0.0
 Flask==3.0.2
 SQLAlchemy==2.0.29
 plotly==5.20.0
+dash-core-components==2.0.0
+dash-html-components==2.0.0
+psycopg2==2.9.9
+dash-table==5.0.0
