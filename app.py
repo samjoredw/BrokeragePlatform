@@ -2,12 +2,12 @@ import base64
 import dash
 import dash_bootstrap_components as dbc
 from dash import html, dcc
-from dash.dependencies import Input, Output
+from dash.dependencies import Input, Output, State
 import sqlalchemy
 from navigation import navbar
-from pages.account import layout as account_layout
-from pages.securities import layout as securities_layout
 from pages.trading import layout as trading_layout
+import plotly.graph_objs as go
+
 
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP], suppress_callback_exceptions=True)
 
@@ -33,55 +33,30 @@ def fetch_userid():
     return user_ids
 
 
-app.layout = html.Div([
-    html.Div(connection_status, style={'text-align': 'center'}),
-    navbar,
-    dcc.Location(id='url', refresh=False),
-    html.H6([
-        html.Div("Please Sign In:", style={"margin-top": "10px"}),
-        dcc.Dropdown(
-            id='user-dropdown',
-            options=fetch_userid(),
-            placeholder="Select a user",
-            style={'width': '300px', 'margin-top': '10px'}
-        ),
-        html.Div(id='account-dropdown-container'),
-    ]),
-    html.Div(id='page-content'),
-])
+def fetch_user_id_from_account(account_id):
+    with engine.connect() as conn:
+        query = sqlalchemy.text("""
+            SELECT userid
+            FROM account
+            WHERE accountid = :account_id
+        """)
+        result = conn.execute(query, {"account_id": account_id})
+        user_id = result.scalar()
+    return user_id
 
-@app.callback(
-    Output('page-content', 'children'),
-    [Input('url', 'pathname')]
-)
-def update_page(pathname):
-    if pathname == '/':
-        return html.Div([
-            html.Div(id='profile-container', style={'float': 'right', 'margin-left': '20px', 'margin-right': '90px'}),
-            html.Div([
-                html.Div(id='holdings-container',
-                         style={'font-size': '14px', "margin-right": "2000px", "margin-left": "40px"}),
-                html.Div(id='transactions-container',
-                         style={'font-size': '14px', "margin-right": "2000px", "margin-left": "40px"}),
-                html.Div(id='transfers-container',
-                         style={'font-size': '14px', "margin-right": "2000px", "margin-left": "40px"})
-            ]),
-            html.Div([
-                html.Img(
-                    src='data:image/png;base64,{}'.format(get_encoded_image('stock_image.png')),
-                    style={'width': '700px', 'margin-top': '10px', 'display': 'block', 'margin-left': 'auto',
-                           'margin-right': '80px'}
-                )
-            ], style={'float': 'left'}),
-        ])
-    elif pathname == '/securities':
-        return securities_layout
-    elif pathname == '/trading':
-        return trading_layout
-    elif pathname == '/account':
-        return account_layout
-    else:
-        return html.H1("404 - Page not found.")
+
+
+def fetch_all_tickers():
+    with engine.connect() as conn:
+        query = sqlalchemy.text("""
+            SELECT ticker, name
+            FROM security
+            ORDER BY ticker;
+        """)
+        results = conn.execute(query).fetchall()
+        # Creating a list of dictionaries for the dropdown options and skipping the first result
+        tickers = [{'label': f"{result[0]} - {result[1]}", 'value': result[0]} for result in results[1:]]
+        return tickers
 
 
 def fetch_accountids(userid):
@@ -94,6 +69,7 @@ def fetch_accountids(userid):
         result = conn.execute(query, {"userid": userid})
         account_ids = [{'label': f"Account ID: {row[0]}", 'value': row[0]} for row in result.fetchall()]
     return account_ids
+
 
 def fetch_profile(user_id):
     with engine.connect() as conn:
@@ -116,6 +92,7 @@ def fetch_profile(user_id):
         profile_data = result.fetchone()
     return profile_data
 
+
 def fetch_transactions(user_id):
     with engine.connect() as conn:
         query = sqlalchemy.text(f"""
@@ -135,12 +112,12 @@ def fetch_transactions(user_id):
                 SELECT securityid, name
                 FROM security
             )
-            SELECT accounttypes.accounttype, 
-                    accountinfo.accountid, 
-                    accountinfo.transactionid, 
-                    accountinfo.securityid, 
-                    securityinfo.name, 
-                    accountinfo.sharecount, 
+            SELECT accounttypes.accounttype,
+                    accountinfo.accountid,
+                    accountinfo.transactionid,
+                    accountinfo.securityid,
+                    securityinfo.name,
+                    accountinfo.sharecount,
                     accountinfo.price,
                 CASE WHEN accountinfo.action THEN 'BUY'
                 ELSE 'SELL'
@@ -158,26 +135,6 @@ def fetch_transactions(user_id):
         result = conn.execute(query)
         transactions_data = result.fetchall()
     return transactions_data
-
-
-def display_transactions(transactions_data):
-    if transactions_data:
-        table_rows = [
-            html.Tr([
-                html.Td(data) for data in row
-            ]) for row in transactions_data
-        ]
-        table = html.Table([
-            html.Thead(html.Tr([html.Th(col) for col in
-                                ['Account Type', 'Account ID', 'Transaction ID', 'Security ID', 'Security Name',
-                                 'Share Count', 'Price', 'Action', 'Date Initiated', 'Date Completed']])),
-            html.Tbody(table_rows)
-        ], className='table table-striped table-bordered table-hover', style={'font-size': '14px'})
-
-        transactions_html = html.H2("Transactions", style={"font-size": "30px", "margin-bottom": "10px"}), html.Div([table])
-    else:
-        transactions_html = html.Div()
-    return transactions_html
 
 
 def fetch_transfers(user_id):
@@ -200,7 +157,160 @@ def fetch_transfers(user_id):
         """)
         result = conn.execute(query)
         transfers_data = result.fetchall()
+
     return transfers_data
+
+
+def fetch_holdings(user_id, account_id):
+    with engine.connect() as conn:
+        query = sqlalchemy.text(f"""
+            WITH accounttypes AS (
+                SELECT accountid, accounttype
+                FROM account
+                WHERE userid = {user_id}
+            ), securityinfo AS (
+                SELECT securityid, name
+                FROM security
+            )
+            SELECT accounttypes.accounttype, securityinfo.name, holding.sharecount, holding.purchaseprice, holding.purchasedate
+            FROM holding
+            LEFT JOIN accounttypes ON holding.accountid = accounttypes.accountid
+            LEFT JOIN securityinfo ON holding.securityid = securityinfo.securityid
+            WHERE holding.accountid = {account_id}
+        """)
+        result = conn.execute(query)
+        holdings_data = result.fetchall()
+    return holdings_data
+
+
+def fetch_security_info(ticker):
+    with engine.connect() as conn:
+        query = sqlalchemy.text("""
+            SELECT securityid, name, ticker
+            FROM security
+            WHERE ticker = :ticker;
+        """)
+        result = conn.execute(query, {"ticker": ticker}).fetchone()
+        if result:
+            return {
+                "security_id": result[0],
+                "name": result[1],
+                "ticker": result[2]
+            }
+        return None
+
+
+def fetch_security_prices(security_id):
+    with engine.connect() as conn:
+        query = sqlalchemy.text("""
+            SELECT date, price
+            FROM securityprice
+            WHERE securityid = :security_id
+            ORDER BY date ASC;
+        """)
+        result = conn.execute(query, {"security_id": security_id}).fetchall()
+        return result
+
+
+app.layout = html.Div([
+    html.Div(connection_status, style={'text-align': 'center'}),
+    navbar,
+    dcc.Location(id='url', refresh=False),
+    html.H6([
+        html.Div("Please Sign In:", style={"margin-top": "10px"}),
+        dcc.Dropdown(
+            id='user-dropdown',
+            options=fetch_userid(),
+            placeholder="Select a user",
+            style={'width': '300px', 'margin-top': '10px'}
+        ),
+        html.Div(id='account-dropdown-container'),
+    ]),
+    html.Div(id='page-content'),
+])
+
+
+@app.callback(
+    Output('page-content', 'children'),
+    [Input('url', 'pathname')]
+)
+def update_page(pathname):
+    if pathname == '/':
+        return html.Div([
+            html.Div(id='profile-container', style={'float': 'right', 'margin-left': '20px', 'margin-right': '90px'}),
+            html.Div([
+                html.Div(id='holdings-container', style={'font-size': '14px', "margin-right": "2000px", "margin-left": "40px"}),
+                html.Div(id='transactions-container', style={'font-size': '14px', "margin-right": "2000px", "margin-left": "40px"}),
+                html.Div(id='transfers-container', style={'font-size': '14px', "margin-right": "2000px", "margin-left": "40px"})
+            ]),
+            html.Div([
+                html.Img(
+                    src='data:image/png;base64,{}'.format(get_encoded_image('stock_image.png')),
+                    style={'width': '700px', 'margin-top': '10px', 'display': 'block', 'margin-left': 'auto', 'margin-right': '80px'}
+                )
+            ], style={'float': 'left'}),
+        ])
+    elif pathname == '/securities':
+        return html.Div([
+            html.H3("Securities Page"),
+            html.Div("Type in a stock here to see results, then press enter!"),
+            dcc.Dropdown(
+                id='ticker-dropdown',
+                options=fetch_all_tickers(),
+                placeholder="Select a ticker...",
+                style={'width': '60%', 'margin': '20px'}
+            ),
+            html.Button('Submit', id='submit-ticker', n_clicks=0),
+            dcc.Graph(id='security-price-graph')
+        ], style={'width': '60%', 'margin': '20px'})
+    elif pathname == '/trading':
+        return html.Div([
+            html.H3("Trading Page"),
+            dcc.Dropdown(
+                id='trading-ticker-dropdown',
+                options=fetch_all_tickers(),
+                placeholder="Select a ticker...",
+                style={'width': '60%', 'margin': '20px'}
+            ),
+            dcc.Dropdown(
+                id='trading-account-dropdown',
+                options=[],  # This will be populated based on the user selection
+                placeholder="Select an account...",
+                style={'width': '60%', 'margin-top': '20px'}
+            ),
+            dcc.Input(
+                id='share-input',
+                type='number',
+                placeholder='Enter number of shares...',
+                style={'width': '60%', 'margin-top': '20px'}
+            ),
+            html.Button('Buy', id='buy-btn', n_clicks=0, style={'margin': '10px'}),
+            html.Button('Sell', id='sell-btn', n_clicks=0, style={'margin': '10px'}),
+            html.Div(id='trading-status-message', style={'width': '60%', 'margin-top': '20px'})
+        ], style={'width': '60%', 'margin': '20px'})
+    else:
+        return html.H1("404 - Page not found.")
+
+
+
+def display_transactions(transactions_data):
+    if transactions_data:
+        table_rows = [
+            html.Tr([
+                html.Td(data) for data in row
+            ]) for row in transactions_data
+        ]
+        table = html.Table([
+            html.Thead(html.Tr([html.Th(col) for col in
+                                ['Account Type', 'Account ID', 'Transaction ID', 'Security ID', 'Security Name',
+                                 'Share Count', 'Price', 'Action', 'Date Initiated', 'Date Completed']])),
+            html.Tbody(table_rows)
+        ], className='table table-striped table-bordered table-hover', style={'font-size': '14px'})
+
+        transactions_html = html.H2("Transactions", style={"font-size": "30px", "margin-bottom": "10px"}), html.Div([table])
+    else:
+        transactions_html = html.Div()
+    return transactions_html
 
 
 def display_transfers(transfers_data):
@@ -249,39 +359,18 @@ def display_profile(profile_data):
             ],
             style={
                 "borderRadius": "15px",
-                "margin-left": "10px",  # Move the box to the left side of the page
-                "margin-right": "auto",  # Center the box horizontally
-                "background-color": "#c8e6c9",  # Darker green color
-                "box-shadow": "5px 5px 5px grey",  # Add shadow for depth
-                "width": "fit-content",  # Expand to fit content
-                "font-family": "Arial, sans-serif"  # Apply slick font to the box
+                "margin-left": "10px",
+                "margin-right": "auto",
+                "background-color": "#c8e6c9",
+                "box-shadow": "5px 5px 5px grey",
+                "width": "fit-content",
+                "font-family": "Arial, sans-serif"
             }
         )
     else:
         profile_html = html.Div()
     return profile_html
 
-
-def fetch_holdings(user_id, account_id):
-    with engine.connect() as conn:
-        query = sqlalchemy.text(f"""
-            WITH accounttypes AS (
-                SELECT accountid, accounttype
-                FROM account
-                WHERE userid = {user_id}
-            ), securityinfo AS (
-                SELECT securityid, name
-                FROM security
-            )
-            SELECT accounttypes.accounttype, securityinfo.name, holding.sharecount, holding.purchaseprice, holding.purchasedate
-            FROM holding
-            LEFT JOIN accounttypes ON holding.accountid = accounttypes.accountid
-            LEFT JOIN securityinfo ON holding.securityid = securityinfo.securityid
-            WHERE holding.accountid = {account_id}
-        """)
-        result = conn.execute(query)
-        holdings_data = result.fetchall()
-    return holdings_data
 
 
 def display_holdings(holdings_data):
@@ -333,7 +422,7 @@ def update_account_dropdown(selected_user):
 )
 def display_profile_data(account_id):
     if account_id:
-        user_id = get_user_id_from_account(account_id)
+        user_id = fetch_user_id_from_account(account_id)
         if user_id:
             profile_data = fetch_profile(user_id)
             profile_html = display_profile(profile_data)
@@ -385,16 +474,105 @@ def display_transactions_data(account_id, user_id):
     return transactions_html
 
 
-def get_user_id_from_account(account_id):
+@app.callback(
+    Output('security-price-graph', 'figure'),
+    [Input('submit-ticker', 'n_clicks')],
+    [State('ticker-dropdown', 'value')]
+)
+def update_graph(n_clicks, ticker):
+    if n_clicks > 0 and ticker:
+        security_info = fetch_security_info(ticker)
+        if security_info:
+            security_id = security_info["security_id"]
+            prices_data = fetch_security_prices(security_id)
+            if prices_data:
+                dates = [row[0] for row in prices_data]
+                prices = [row[1] for row in prices_data]
+                graph_figure = {
+                    'data': [go.Scatter(
+                        x=dates,
+                        y=prices,
+                        mode='lines+markers',
+                        line=dict(color='green'),  # Set the line color to green
+                        marker=dict(color='green')  # Set the marker color to green
+                    )],
+                    'layout': go.Layout(
+                        title=f'Security Prices Over Time for {security_info["name"]} ({security_info["ticker"]})',
+                        xaxis={'title': 'Date'},
+                        yaxis={'title': 'Price'},
+                        margin={'l': 40, 'b': 40, 't': 80, 'r': 40},
+                        hovermode='closest'
+                    )
+                }
+                return graph_figure
+            else:
+                return {
+                    'data': [],
+                    'layout': go.Layout(title="No price data available for this security")
+                }
+        else:
+            return {
+                'data': [],
+                'layout': go.Layout(title="Security not found")
+            }
+    return {
+        'data': [],
+        'layout': go.Layout(title="Select a ticker and press submit to view the security prices")
+    }
+
+
+@app.callback(
+    Output('trading-account-dropdown', 'options'),
+    [Input('user-dropdown', 'value')]
+)
+def update_trading_account_dropdown(selected_user):
+    return fetch_accountids(selected_user)
+
+
+@app.callback(
+    Output('trading-status-message', 'children'),
+    [Input('buy-btn', 'n_clicks'), Input('sell-btn', 'n_clicks')],
+    prevent_initial_call=True  # Prevents the callback from firing upon initialization
+)
+def execute_trade(buy_clicks, sell_clicks):
+    ctx = dash.callback_context
+
+    if not ctx.triggered:
+        return ""
+
+    return html.Div([
+        html.P("Executing your trade, please check your account in 48 hours for confirmation."),
+    ], style={
+        'border': '2px solid green',
+        'padding': '10px',
+        'border-radius': '5px',
+        'color': 'green',
+        'font-weight': 'bold',
+        'margin-top': '20px',
+        'background-color': '#ebf9eb'
+    })
+
+
+
+def fetch_current_price(ticker, test_date=None):
     with engine.connect() as conn:
-        query = sqlalchemy.text("""
-            SELECT userid
-            FROM account
-            WHERE accountid = :account_id
+        date_clause = "AND Date = :date" if test_date else "AND Date = CURRENT_DATE"
+        query = sqlalchemy.text(f"""
+            SELECT Price FROM SecurityPrice
+            WHERE SecurityID = (SELECT SecurityID FROM Security WHERE Ticker = :ticker)
+            {date_clause}
+            ORDER BY Date DESC LIMIT 1;
         """)
-        result = conn.execute(query, {"account_id": account_id})
-        user_id = result.scalar()
-    return user_id
+        params = {'ticker': ticker}
+        if test_date:
+            params['date'] = test_date
+        current_price = conn.execute(query, params).scalar()
+
+        if current_price:
+            return current_price
+        else:
+            return None
+
 
 if __name__ == '__main__':
     app.run_server(debug=True)
