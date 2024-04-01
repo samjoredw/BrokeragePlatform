@@ -5,7 +5,6 @@ from dash import html, dcc
 from dash.dependencies import Input, Output, State
 import sqlalchemy
 from navigation import navbar
-from pages.trading import layout as trading_layout
 import plotly.graph_objs as go
 
 

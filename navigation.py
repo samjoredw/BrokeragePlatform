@@ -1,9 +1,4 @@
 import dash_bootstrap_components as dbc
-import dash
-from dash import html
-from dash.dependencies import Input, Output
-import sqlalchemy
-
 
 navbar = dbc.NavbarSimple(
     brand="STONKS Trading Co.",
