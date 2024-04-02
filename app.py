@@ -212,6 +212,71 @@ def fetch_security_prices(security_id):
         return result
 
 
+def fetch_security_profile(ticker):
+    with engine.connect() as conn:
+        query = sqlalchemy.text("""
+            SELECT name, type, ticker, hqstreetaddress, sharesoutstanding, eps, sectors
+            FROM security
+            WHERE ticker = :ticker;
+        """)
+        result = conn.execute(query, {"ticker": ticker}).fetchone()
+        if result:
+            profile_data = {
+                "name": result[0],
+                "type": result[1],
+                "ticker": result[2],
+                "hqstreetaddress": result[3],
+                "sharesoutstanding": result[4],
+                "eps": result[5],
+                "sectors": result[6]
+            }
+            return profile_data
+        return None
+
+
+@app.callback(
+    Output('security-profile-container', 'children'),
+    [Input('submit-ticker', 'n_clicks')],
+    [State('ticker-dropdown', 'value')]
+)
+def update_security_profile(n_clicks, ticker):
+    if n_clicks is not None and n_clicks > 0 and ticker:  # Checking n_clicks is not None
+        security_profile = fetch_security_profile(ticker)
+        if security_profile:
+            profile_html = html.Div([
+                html.H2("Security Profile", style={"font-size": "30px", "margin-bottom": "10px"}),
+                dbc.Card(
+                    [
+                        dbc.CardBody(
+                            [
+                                html.P(f"Name: {security_profile['name']}"),
+                                html.P(f"Type: {security_profile['type']}"),
+                                html.P(f"Ticker: {security_profile['ticker']}"),
+                                html.P(f"Street Address: {security_profile['hqstreetaddress']}"),
+                                html.P(f"Shares Outstanding: {security_profile['sharesoutstanding']}"),
+                                html.P(f"Earnings per Share (EPS): {security_profile['eps']}"),
+                                html.P(f"Sectors: {security_profile['sectors']}"),
+                            ]
+                        )
+                    ],
+                    style={
+                        "borderRadius": "15px",
+                        "margin-left": "10px",
+                        "margin-right": "auto",
+                        "background-color": "#c8e6c9",
+                        "box-shadow": "5px 5px 5px grey",
+                        "width": "fit-content",
+                        "font-family": "Arial, sans-serif"
+                    }
+                )
+            ])
+        else:
+            profile_html = html.Div("Security not found")
+    else:
+        profile_html = html.Div("")
+    return profile_html
+
+
 app.layout = html.Div([
     html.Div(connection_status, style={'text-align': 'center'}),
     navbar,
@@ -261,6 +326,7 @@ def update_page(pathname):
                 style={'width': '60%', 'margin': '20px'}
             ),
             html.Button('Submit', id='submit-ticker', n_clicks=0),
+            html.Div(id='security-profile-container'),
             dcc.Graph(id='security-price-graph')
         ], style={'width': '60%', 'margin': '20px'})
     elif pathname == '/trading':
