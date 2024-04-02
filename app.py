@@ -249,10 +249,11 @@ def update_security_profile(n_clicks, ticker):
                     [
                         dbc.CardBody(
                             [
+                                html.H1("Profile"),
                                 html.P(f"Name: {security_profile['name']}"),
                                 html.P(f"Type: {security_profile['type']}"),
                                 html.P(f"Ticker: {security_profile['ticker']}"),
-                                html.P(f"Street Address: {security_profile['hqstreetaddress']}"),
+                                html.P(f"HQ: {security_profile['hqstreetaddress']}"),
                                 html.P(f"Shares Outstanding: {security_profile['sharesoutstanding']}"),
                                 html.P(f"Earnings per Share (EPS): {security_profile['eps']}"),
                                 html.P(f"Sectors: {security_profile['sectors']}"),
